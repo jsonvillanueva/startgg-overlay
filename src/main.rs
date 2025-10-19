@@ -3,8 +3,11 @@ use axum::{
 };
 use dotenvy::dotenv;
 mod api;
-use crate::api::{streams::stream_queue_handler, tournaments::get_tournament_handler};
-use crate::api::streams::{set_entrants_handler, set_scores_handler};
+use crate::api::tournaments::get_tournament_handler;
+use crate::api::streams::{
+    stream_queue_handler,
+};
+use crate::api::set::set_details_handler;
 use tower_http::services::ServeDir;
 use tower_http::cors::{CorsLayer, Any};
 use std::time::Duration;
@@ -20,10 +23,8 @@ async fn main() {
         .route("/tournament/{slug}/stream_queue/", get(stream_queue_handler))
         .route("/tournament/{slug}", get(get_tournament_handler))
         .route("/tournament/{slug}/", get(get_tournament_handler))
-        .route("/set/{id}/entrants", get(set_entrants_handler))
-        .route("/set/{id}/entrants/", get(set_entrants_handler))
-        .route("/set/{id}/scores", get(set_scores_handler))
-        .route("/set/{id}/scores/", get(set_scores_handler))
+        .route("/set/{id}", get(set_details_handler))
+        .route("/set/{id}/", get(set_details_handler))
         .fallback_service(get_service(ServeDir::new("static")))
         .layer(
             CorsLayer::new()
