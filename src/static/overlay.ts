@@ -23,35 +23,35 @@ interface SetInfo {
   id: number;
 }
 
-interface SetEntrantsResponse {
-  data?: {
-    set?: {
-      slots?: {
-        entrant?: {
-          name?: string;
-        };
-      }[];
+interface SetFullResponse {
+  id: number;
+  displayScore?: string;
+  fullRoundText?: string;
+  totalGames?: number;
+  phaseGroup?: {
+    phase?: {
+      name?: string;
     };
   };
-}
-
-interface SetScoresResponse {
-  data?: {
-    set?: {
-      slots?: {
-        standing?: {
-          stats?: {
-            score?: {
-              value: number | null;
-            };
-          };
-        };
-      }[];
+  slots?: {
+    entrant?: {
+      name?: string;
+      participants?: { gamerTag?: string }[];
     };
-  };
+    standing?: {
+      placement?: number;
+      stats?: {
+        score?: {
+          label?: string;
+          value?: string;
+        };
+      };
+    };
+  }[];
 }
 
 let lastActiveSetId: number | null = null;
+let lastSetData: SetFullResponse | null = null;
 
 // --- Functions ---
 async function getStreamQueue(): Promise<number | null> {
@@ -69,44 +69,52 @@ async function getStreamQueue(): Promise<number | null> {
   return firstSet ? firstSet.id : null;
 }
 
-async function getSetEntrants(setId: number): Promise<string[]> {
-  const res = await fetch(`${BASE_URL}/set/${setId}/entrants`);
-  const data: SetEntrantsResponse = await res.json();
-
-  const slots = data.data?.set?.slots || [];
-  return slots.map((slot) => slot.entrant?.name || "Unknown");
-}
-
-async function getSetScores(setId: number): Promise<number[]> {
-  const res = await fetch(`${BASE_URL}/set/${setId}/scores`);
-  const data: SetScoresResponse = await res.json();
-
-  const slots = data.data?.set?.slots || [];
-  return slots.map((slot) => slot.standing?.stats?.score?.value ?? 0);
+async function getSetFull(setId: number): Promise<SetFullResponse | null> {
+  const res = await fetch(`${BASE_URL}/set/${setId}`);
+  if (!res.ok) return null;
+  return await res.json();
 }
 
 async function updateOverlay(): Promise<void> {
-  const setId = await getStreamQueue();
-  if (setId !== null) {
-    lastActiveSetId = setId;
+  try {
+    const setId = await getStreamQueue();
+    if (setId !== null) {
+      lastActiveSetId = setId;
+      const setData = await getSetFull(setId);
+      console.log(setData);
+      if (setData) {
+        lastSetData = setData;
+      }
+    }
+
+    if (!lastSetData) {
+      document.getElementById("player1")!.textContent = "";
+      document.getElementById("player2")!.textContent = "";
+      document.getElementById("score")!.textContent = "No Active Set";
+      return;
+    }
+
+    const slots = lastSetData.slots || [];
+    const player1 = slots[0]?.entrant?.name ?? "Player 1";
+    const player2 = slots[1]?.entrant?.name ?? "Player 2";
+
+    const score1 = slots[0]?.standing?.stats?.score?.value ?? "0";
+    const score2 = slots[1]?.standing?.stats?.score?.value ?? "0";
+
+    const totalGames = lastSetData.totalGames ?? 5;
+    const bestOf = `Best of ${totalGames}`;
+
+    document.getElementById("player1")!.textContent = player1;
+    document.getElementById("player2")!.textContent = player2;
+    document.getElementById("score1")!.textContent = score1;
+    document.getElementById("score2")!.textContent = score2;
+    document.getElementById("bestof")!.textContent = bestOf;
+  } catch (err) {
+    console.error("Error updating overlay:", err);
   }
-
-  if (lastActiveSetId === null) {
-    document.getElementById("score")!.textContent = "Not Active";
-    document.getElementById("player1")!.textContent = "";
-    document.getElementById("player2")!.textContent = "";
-    return;
-  }
-
-  const entrants = await getSetEntrants(lastActiveSetId);
-  const scores = await getSetScores(lastActiveSetId);
-
-  document.getElementById("player1")!.textContent = entrants[0] || "";
-  document.getElementById("player2")!.textContent = entrants[1] || "";
-  document.getElementById("score")!.textContent = `${scores[0]} - ${scores[1]}`;
 }
 
 // Refresh every 10 seconds
-setInterval(updateOverlay, 5000);
+setInterval(updateOverlay, 3000);
 
 updateOverlay();
