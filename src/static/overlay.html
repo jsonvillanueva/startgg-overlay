@@ -3,24 +3,32 @@
   <head>
     <meta charset="UTF-8" />
     <title>StartGG Overlay</title>
-    <style>
-      body {
-        color: white;
-        background: transparent;
-        font-family: sans-serif;
-      }
-      .match {
-        text-align: center;
-        font-size: 2em;
-      }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Orbitron font for a clean, esports-style look -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600&display=swap"
+      rel="stylesheet"
+    />
+    <link href="style.css" rel="stylesheet" />
   </head>
+
   <body>
     <div class="match">
-      <div id="player1"></div>
-      <div id="score">0 - 0</div>
-      <div id="player2"></div>
+      <div class="player player1">
+        <div id="player1" class="player-name">Player One</div>
+        <div id="score1" class="score">0</div>
+      </div>
+
+      <div class="vs">VS</div>
+
+      <div class="player player2">
+        <div id="player2" class="player-name">Player Two</div>
+        <div id="score2" class="score">0</div>
+      </div>
     </div>
+
+    <div id="bestof" class="bestof">Best of 3</div>
 
     <script src="overlay.js"></script>
   </body>

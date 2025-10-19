@@ -1,0 +1,89 @@
+:root {
+  --player1-color: #007bff;
+  --player2-color: #ff4b2b;
+  --text-color: #ffffff;
+  --bg-color: rgba(15, 15, 20, 0.85);
+}
+
+body {
+  margin: 0;
+  background: transparent;
+  color: var(--text-color);
+  font-family: "Orbitron", sans-serif;
+  overflow: hidden;
+}
+
+.match {
+  position: absolute;
+  top: 3%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-color);
+  border-radius: 12px;
+  padding: 10px 30px;
+  gap: 40px;
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+  text-align: center;
+}
+
+.player {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 180px;
+}
+
+.player-name {
+  font-size: 1.3rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+
+.player1 .player-name {
+  color: var(--player1-color);
+  text-shadow: 0 0 10px var(--player1-color);
+}
+
+.player2 .player-name {
+  color: var(--player2-color);
+  text-shadow: 0 0 10px var(--player2-color);
+}
+
+.score {
+  font-size: 2.4rem;
+  font-weight: 700;
+}
+
+.player1 .score {
+  color: var(--player1-color);
+  text-shadow: 0 0 8px var(--player1-color);
+}
+
+.player2 .score {
+  color: var(--player2-color);
+  text-shadow: 0 0 8px var(--player2-color);
+}
+
+.vs {
+  font-size: 1.2rem;
+  opacity: 0.8;
+  letter-spacing: 1px;
+}
+
+.bestof {
+  position: absolute;
+  top: calc(3% + 70px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.4);
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  letter-spacing: 0.5px;
+  opacity: 0.8;
+  text-transform: uppercase;
+}
