@@ -1,7 +1,4 @@
-const STREAM_NAME = "jsonv"; // your Twitch stream name
-const TOURNAMENT_SLUG = "jsonv-s-echo-of-screams-tournament";
-const BASE_URL = "http://127.0.0.1:3000";
-
+import { BASE_URL, STREAM_NAME, TOURNAMENT_SLUG } from "./constants.js";
 // --- Types ---
 interface StreamQueueResponse {
   data?: {
@@ -80,26 +77,30 @@ async function updateOverlay(): Promise<void> {
     const setId = await getStreamQueue();
     if (setId !== null) {
       lastActiveSetId = setId;
-      const setData = await getSetFull(setId);
-      console.log(setData);
+    }
+
+    // If we have a set ID to work with, fetch full set info
+    if (lastActiveSetId !== null) {
+      const setData = await getSetFull(lastActiveSetId);
       if (setData) {
         lastSetData = setData;
       }
     }
 
     if (!lastSetData) {
-      document.getElementById("player1")!.textContent = "";
-      document.getElementById("player2")!.textContent = "";
-      document.getElementById("score")!.textContent = "No Active Set";
+      document.getElementById("player1")!.textContent = "NOT";
+      document.getElementById("player2")!.textContent = "AVAIL";
+      // document.getElementById("score")!.textContent = "No Active Set";
       return;
     }
 
     const slots = lastSetData.slots || [];
-    const player1 = slots[0]?.entrant?.name ?? "Player 1";
-    const player2 = slots[1]?.entrant?.name ?? "Player 2";
+    const player1 = slots[0]?.entrant?.name?.trim() || "Player 1";
+    const player2 = slots[1]?.entrant?.name?.trim() || "Player 2";
 
     const score1 = slots[0]?.standing?.stats?.score?.value ?? "0";
     const score2 = slots[1]?.standing?.stats?.score?.value ?? "0";
+    console.log(slots);
 
     const totalGames = lastSetData.totalGames ?? 5;
     const bestOf = `Best of ${totalGames}`;
@@ -115,6 +116,6 @@ async function updateOverlay(): Promise<void> {
 }
 
 // Refresh every 10 seconds
-setInterval(updateOverlay, 3000);
+setInterval(updateOverlay, 5000);
 
 updateOverlay();

@@ -1,6 +1,12 @@
+@font-face {
+  font-family: "Solmoe KimDaeGeon";
+  src: url("./fonts/SolmoeKimDaeGeon.OTF") format("opentype");
+  font-weight: normal;
+  font-style: normal;
+}
 :root {
-  --player1-color: #007bff;
-  --player2-color: #ff4b2b;
+  --player1-color: #00a9b7;
+  --player2-color: #c79b51;
   --text-color: #ffffff;
   --bg-color: rgba(15, 15, 20, 0.85);
 }
@@ -9,13 +15,14 @@ body {
   margin: 0;
   background: transparent;
   color: var(--text-color);
-  font-family: "Orbitron", sans-serif;
+  /* font-family: "Orbitron", sans-serif; */
+  font-family: "Solmoe KimDaeGeon", sans-serif; /* fallback if font fails */
   overflow: hidden;
 }
 
 .match {
   position: absolute;
-  top: 3%;
+  bottom: 3%;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -38,7 +45,7 @@ body {
 
 .player-name {
   font-size: 1.3rem;
-  text-transform: uppercase;
+  /* text-transform: uppercase; */
   letter-spacing: 1px;
   margin-bottom: 4px;
 }
@@ -76,7 +83,7 @@ body {
 
 .bestof {
   position: absolute;
-  top: calc(3% + 70px);
+  bottom: calc(3% + 70px);
   left: 50%;
   transform: translateX(-50%);
   background: rgba(0, 0, 0, 0.4);
@@ -85,5 +92,5 @@ body {
   font-size: 0.9rem;
   letter-spacing: 0.5px;
   opacity: 0.8;
-  text-transform: uppercase;
+  /* text-transform: uppercase; */
 }
