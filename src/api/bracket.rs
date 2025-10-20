@@ -9,17 +9,21 @@ pub async fn bracket_handler(Path(phase_id): Path<u64>) -> impl IntoResponse {
     let api_key = env::var("STARTGG_TOKEN").expect("Missing STARTGG_TOKEN env var");
 
     // GraphQL query string
+let page = 1; // Start at page 1
+let per_page = 64; // Number of sets per page
+
 let query = json!({
     "query": format!(
         r#"
         {{
           phase(id: {}) {{
+            id
             name
-            phaseGroups(query: {{ perPage: 64 }}) {{
+            phaseGroups {{
               nodes {{
                 id
                 displayIdentifier
-                sets {{
+                sets(page: {}, perPage: {}) {{
                   nodes {{
                     id
                     round
@@ -39,7 +43,9 @@ let query = json!({
           }}
         }}
         "#,
-        phase_id
+        phase_id,
+        page,
+        per_page
     )
 });
 
