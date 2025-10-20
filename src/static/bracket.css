@@ -1,0 +1,184 @@
+body {
+  font-family: Arial, sans-serif;
+  background-color: #1a1a1a;
+  color: #f0f0f0;
+  padding: 20px;
+  text-align: center;
+}
+
+h2,
+h3 {
+  margin: 10px 0;
+}
+
+/* Phase group container */
+.phase-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 50px;
+  border: 2px solid #555;
+  padding: 10px;
+  border-radius: 8px;
+  background-color: #222;
+}
+
+/* Distinguish losers bracket */
+.phase-group.losers {
+  border-color: #ff5722;
+  background-color: #2a1a1a;
+}
+
+.rounds-container {
+  display: grid;
+  grid-auto-flow: column;
+  grid-gap: 50px; /* horizontal space between rounds */
+}
+
+.round-column {
+  display: grid;
+  grid-auto-rows: 80px; /* each match height */
+  row-gap: 20px;
+  position: relative;
+}
+
+/* Horizontal connector using pseudo-element */
+.set::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  width: 30px;
+  height: 2px;
+  background: #888;
+}
+
+/* Remove connector for last column */
+.round-column:last-child .set::after {
+  display: none;
+}
+
+/* Players inside a match */
+.players {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.players > div {
+  background-color: #333;
+  padding: 5px;
+  border-radius: 3px;
+  text-align: center;
+  transition: all 0.3s;
+}
+
+/* Highlight winners */
+.winner {
+  background-color: #4caf50;
+  color: #fff;
+  font-weight: bold;
+}
+
+/* Score */
+.score {
+  margin-top: 5px;
+  color: #ffd700;
+  font-weight: bold;
+  text-align: center;
+}
+
+/* Horizontal line to next round */
+.set::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: -25px;
+  width: 25px;
+  height: 2px;
+  background-color: #888;
+}
+
+/* Vertical connector line between matches */
+.set::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: -25px;
+  width: 2px;
+  height: 100%;
+  background-color: #888;
+}
+
+/* Remove lines for last match in column */
+.round-column .set:last-child::after,
+.round-column .set:last-child::before {
+  display: none;
+}
+
+#bracket {
+  display: flex;
+  flex-direction: column; /* winners on top, losers below */
+  align-items: center;
+  gap: 50px;
+}
+
+.bracket-container {
+  display: grid;
+  grid-auto-flow: column; /* each round is a column */
+  gap: 50px; /* space between rounds */
+}
+
+/* Each round column will be an implicit grid column */
+
+.round-header {
+  text-align: center;
+  font-weight: bold;
+  margin-bottom: 10px;
+  font-size: 14px;
+  color: #fff;
+}
+
+.round-column {
+  display: grid;
+  grid-auto-rows: 80px; /* each match height */
+  row-gap: 20px; /* spacing between matches */
+  position: relative;
+}
+
+/* Each match */
+.set {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background-color: #2b2b2b;
+  border-radius: 5px;
+  width: 120px;
+  position: relative;
+}
+
+/* Players inside match */
+.players {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.players > div {
+  background-color: #333;
+  padding: 5px;
+  border-radius: 3px;
+  text-align: center;
+}
+
+.winner {
+  background-color: #4caf50;
+  color: #fff;
+  font-weight: bold;
+}
+
+.score {
+  margin-top: 5px;
+  color: #ffd700;
+  font-weight: bold;
+  text-align: center;
+}

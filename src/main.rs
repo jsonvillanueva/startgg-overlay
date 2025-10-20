@@ -3,6 +3,7 @@ use axum::{
 };
 use dotenvy::dotenv;
 mod api;
+use crate::api::bracket::bracket_handler;
 use crate::api::tournaments::get_tournament_handler;
 use crate::api::streams::{
     stream_queue_handler,
@@ -25,7 +26,9 @@ async fn main() {
         .route("/tournament/{slug}/", get(get_tournament_handler))
         .route("/set/{id}", get(set_details_handler))
         .route("/set/{id}/", get(set_details_handler))
-        .fallback_service(get_service(ServeDir::new("static")))
+        .route("/bracket/{id}", get(bracket_handler))
+        .route("/bracket/{id}/", get(bracket_handler))
+        .fallback_service(get_service(ServeDir::new("src/static")))
         .layer(
             CorsLayer::new()
                 .allow_origin(Any)          // allow any origin
