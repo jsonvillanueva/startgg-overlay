@@ -1,8 +1,11 @@
 import { BASE_URL, PHASE_ID } from "./constants.js";
 
+const COLUMN_WIDTH = 280; // was 220
+const BOX_WIDTH = 200; // was 160
+const BOX_HEIGHT = 60; // was 40
 interface EntrantSource {
   type?: string; // e.g. "set"
-  typeId?: string; // links to another set's id
+  typeId?: number | string; // links to another set's id
 }
 
 interface Slot {
@@ -42,67 +45,56 @@ interface LayoutNode {
   name: string;
 }
 
-function parseMatchFromTypeId(typeId: string): number {
-  // typeId format: preview_<groupId>_<round>_<match>
-  const parts = typeId.split("_");
-  if (parts.length < 4) return 0; // fallback
-  return parseInt(parts[3], 10);
+function parseMatchFromTypeId(typeId: string | number): number {
+  if (typeof typeId === "string" && typeId.includes("_")) {
+    const parts = typeId.split("_");
+    return parseInt(parts[3], 10) || 0;
+  }
+  // fallback for numeric IDs
+  return Number(typeId) || 0;
 }
 
 function buildBracketGraph(sets: BracketSet[]): BracketNode[] {
-  // Step 1: Create a lookup of id → BracketNode
   const nodeMap: Record<string, BracketNode> = {};
   for (const set of sets) {
-    nodeMap[set.id] = {
-      id: set.id,
-      set,
-      parents: [],
-      children: [],
-    };
+    const key = set.id.toString(); // ensure string key
+    nodeMap[key] = { id: key, set, parents: [], children: [] };
   }
 
-  // Sort the sets by round first, then by match number (derived from typeId)
+  // Sort by round, then by match
   sets.sort((a, b) => {
     const aRound = a.round;
     const bRound = b.round;
-    const aMatch = parseInt(a.id.split("_")[2], 10); // Extract match number from typeId
-    const bMatch = parseInt(b.id.split("_")[2], 10);
+    const aMatch = parseMatchFromTypeId(a.id);
+    const bMatch = parseMatchFromTypeId(b.id);
     return aRound !== bRound ? aRound - bRound : aMatch - bMatch;
   });
 
-  // Step 2: Connect edges using entrant sources
+  // Connect parents → children
   for (const set of sets) {
-    const node = nodeMap[set.id];
+    const node = nodeMap[set.id.toString()];
     const sources = [set.entrant1Source, set.entrant2Source];
 
     for (const src of sources) {
-      if (!src) continue;
-      if (src.type === "set" && typeof src.typeId === "string") {
-        const parentNode = nodeMap[src.typeId];
-        if (parentNode) {
-          // Link parent → child
-          parentNode.children.push(node);
-          // Link child → parent
-          node.parents.push(parentNode);
-        }
+      if (!src || src.type !== "set" || src.typeId == null) continue;
+      const parentNode = nodeMap[src.typeId.toString()];
+      if (parentNode) {
+        parentNode.children.push(node);
+        node.parents.push(parentNode);
       }
-      // Seeds (type === "seed") are terminal inputs (no parent node)
     }
   }
 
-  // Step 3: Find root nodes (no parents → earliest round matches)
-  const roots = Object.values(nodeMap).filter((n) => n.parents.length === 0);
-
-  return roots;
+  return Object.values(nodeMap).filter((n) => n.parents.length === 0);
 }
 
 function drawBracket(
   sets: any[],
   layout: Record<string, LayoutNode>,
   boxW: number,
-  boxH: number
+  boxH: number,
+  svg: SVGSVGElement
 ) {
-  const svg = document.querySelector<SVGSVGElement>("#bracket")!;
   svg.innerHTML = ""; // clear
 
   // Create a single group to hold everything — we'll measure this group's bbox
@@ -116,8 +108,8 @@ function drawBracket(
     const sources = [set.entrant1Source, set.entrant2Source];
 
     for (const src of sources) {
-      if (!src || src.type !== "set") continue;
-      const from = layout[src.typeId];
+      if (!src || src.type !== "set" || src.typeId == null) continue;
+      const from = layout[src.typeId.toString()];
       if (!from) continue;
 
       const path = document.createElementNS(
@@ -157,6 +149,7 @@ function drawBracket(
     // Handle player text lines
     const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
     text.classList.add("players");
+    text.setAttribute("font-size", "16"); // was default, now bigger
     text.setAttribute("x", (boxW / 2).toString());
     text.setAttribute("y", (boxH / 2 - 6).toString());
 
@@ -215,79 +208,48 @@ window.addEventListener("resize", () => {
   // OR: compute the same viewBox logic again if you kept references to gContent.
 });
 
-/* --- Update loop --- */
-async function fetchBracket() {
-  const res = await fetch(`${BASE_URL}/bracket/${PHASE_ID}`);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
-}
-
-async function updateBracket() {
-  const json = await fetchBracket();
-
-  // Flatten sets
-  const allSets: any[] = [];
-  console.log(json);
-  json.data.phase.sets.forEach((set: BracketSet) => {
-    // Adjust Grand Finals Reset to appear one column further
-    if (set.fullRoundText === "Grand Final Reset") {
-      set.round += 1;
-      set.id = `preview_141414_${set.round}_0`;
-    }
-    allSets.push(set);
+function buildLayout(
+  sets: any[],
+  xOffset: number,
+  yOffset = 0,
+  availableHeight = window.innerHeight
+): Record<string, LayoutNode> {
+  const roundGroups: Record<number, any[]> = {};
+  sets.forEach((s) => {
+    const roundKey = Math.abs(s.round);
+    if (!roundGroups[roundKey]) roundGroups[roundKey] = [];
+    roundGroups[roundKey].push(s);
   });
 
-  // Build winners graph (round >= 0)
-  const winnersSets = allSets.filter((s) => s.round >= 0);
-  const roots = buildBracketGraph(winnersSets);
-
-  // Layout by round → X position
-  const roundGroups: Record<number, any[]> = {};
-  for (const s of winnersSets) {
-    if (!roundGroups[s.round]) roundGroups[s.round] = [];
-    roundGroups[s.round].push(s);
-  }
-
-  // Sort rounds ascending
   const rounds = Object.keys(roundGroups)
     .map(Number)
     .sort((a, b) => a - b);
 
-  // Layout constants
-  const COLUMN_WIDTH = 220;
-  const ROW_HEIGHT = 100;
-  const BOX_WIDTH = 160;
-  const BOX_HEIGHT = 40;
-
   const layout: Record<string, LayoutNode> = {};
   rounds.forEach((round, colIdx) => {
-    const sets = roundGroups[round];
-
-    // Sort sets by match number
-    sets.sort(
+    const setsInRound = roundGroups[round];
+    setsInRound.sort(
       (a, b) => parseMatchFromTypeId(a.id) - parseMatchFromTypeId(b.id)
     );
 
-    const startY = 50;
-    const endY = window.innerHeight - 50;
+    const startY = 0;
+    const endY = availableHeight;
+    const virtualSlots = setsInRound.length + 2;
+    const spacing = (endY - startY - BOX_HEIGHT) / (virtualSlots - 1);
 
-    const n = sets.length;
-    const virtualSlots = n + 2; // two "ghost" matches for spacing
-    const spacing = (endY - startY) / (virtualSlots - 1);
+    setsInRound.forEach((set, i) => {
+      const x = colIdx * COLUMN_WIDTH + xOffset;
+      const y = yOffset + startY + (i + 1) * spacing;
 
-    sets.forEach((set, i) => {
-      const x = colIdx * COLUMN_WIDTH + 100;
-      // y is offset by 1 to account for the "top ghost"
-      const y = startY + (i + 1) * spacing;
-
-      // Compute entrant names
       const names = set.slots
         .map((s: any) => s?.entrant?.name || "")
         .filter(Boolean);
-      let entrantNames: string;
-      if (names.length === 2) entrantNames = `${names[0]} vs ${names[1]}`;
-      else if (names.length === 1) entrantNames = `${names[0]} vs TBD`;
-      else entrantNames = `TBD vs TBD`;
+      let entrantNames =
+        names.length === 2
+          ? `${names[0]} vs ${names[1]}`
+          : names.length === 1
+          ? `${names[0]} vs TBD`
+          : `TBD vs TBD`;
 
       layout[set.id] = {
         id: set.id,
@@ -300,7 +262,110 @@ async function updateBracket() {
     });
   });
 
-  drawBracket(winnersSets, layout, BOX_WIDTH, BOX_HEIGHT);
+  return layout;
 }
 
+/* --- Update loop --- */
+async function fetchBracket() {
+  const res = await fetch(`${BASE_URL}/bracket/${PHASE_ID}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+async function updateBracket() {
+  const json = await fetchBracket();
+
+  // Flatten sets
+  const allSets: any[] = [];
+  json.data.phase.sets.forEach((set: BracketSet) => {
+    // Adjust Grand Finals Reset to appear one column further
+    if (set.fullRoundText === "Grand Final Reset") {
+      set.round += 1;
+      set.id = `preview_141414_${set.round}_0`;
+    }
+    allSets.push(set);
+  });
+
+  // --- Winners bracket ---
+  const halfHeight = window.innerHeight / 2;
+
+  const winnersSets = allSets.filter((s) => s.round >= 0);
+  const winnerLayout = buildLayout(winnersSets, 0, 0, window.innerHeight); // top half
+  const winnerRoots = buildBracketGraph(winnersSets);
+
+  // --- Losers bracket ---
+  const losersSets = allSets.filter((s) => s.round < 0);
+  const LOSERS_X_OFFSET =
+    Math.max(...winnersSets.map((s) => s.round)) * COLUMN_WIDTH + 300;
+  const loserLayout = buildLayout(losersSets, 0, 0, window.innerHeight); // bottom half
+  const loserRoots = buildBracketGraph(losersSets);
+
+  const winnersFinal = winnersSets
+    .filter((s: any) => s.fullRoundText.includes("Grand Final"))
+    .sort((a: any, b: any) => a.round - b.round)[0];
+
+  const losersFinal = losersSets
+    .filter((s: any) => s.fullRoundText.includes("Grand Final"))
+    .sort((a: any, b: any) => a.round - b.round)[0];
+
+  // Flatten sets and conditionally add Grand Final Reset
+  json.data.phase.sets.forEach((set: BracketSet) => {
+    if (set.fullRoundText === "Grand Final Reset") {
+      // Only include reset if loser bracket winner won the first GF match
+      const grandFinal = json.data.phase.sets.find(
+        (s: any) => s.fullRoundText === "Grand Final"
+      );
+      if (grandFinal && grandFinal.winnerId === losersFinal?.winnerId) {
+        set.round += 1;
+        set.id = `preview_141414_${set.round}_0`;
+        allSets.push(set);
+      }
+    } else {
+      allSets.push(set);
+    }
+  });
+
+  // Combine layouts
+  const combinedLayout: Record<string, LayoutNode> = {
+    ...winnerLayout,
+    ...loserLayout,
+  };
+
+  // Combine sets for drawing
+  const combinedSets = [...winnersSets, ...losersSets];
+
+  const winnersSvg = document.querySelector<SVGSVGElement>("#winners-bracket")!;
+  const losersSvg = document.querySelector<SVGSVGElement>("#losers-bracket")!;
+
+  // Draw everything
+  drawBracket(winnersSets, winnerLayout, BOX_WIDTH, BOX_HEIGHT, winnersSvg);
+  drawBracket(losersSets, loserLayout, BOX_WIDTH, BOX_HEIGHT, losersSvg);
+}
+let showingWinners = true;
+
+function toggleBrackets() {
+  showingWinners = !showingWinners;
+
+  // toggle bracket SVGs
+  document
+    .getElementById("winners-bracket")
+    ?.classList.toggle("active", showingWinners);
+  document
+    .getElementById("losers-bracket")
+    ?.classList.toggle("active", !showingWinners);
+
+  // toggle headers
+  document
+    .getElementById("winners-header")
+    ?.classList.toggle("active", showingWinners);
+  document
+    .getElementById("losers-header")
+    ?.classList.toggle("active", !showingWinners);
+}
+
+// Example: switch every 10 seconds
+setInterval(toggleBrackets, 10000);
+setInterval(updateBracket, 30000);
+
 updateBracket();
+document.getElementById("winners-bracket")?.classList.add("active");

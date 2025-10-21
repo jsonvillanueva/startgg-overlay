@@ -1,20 +1,51 @@
+@font-face {
+  font-family: "SolmoeKimDaeGeon";
+  src: url("./fonts/SolmoeKimDaeGeon.otf") format("opentype");
+}
+body {
+  font-family: "SolmoeKimDaeGeon", sans-serif;
+  font-size: 1em; /* adjust as needed */
+}
 /* Main bracket container */
 #bracket-container {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  display: flex;
-  justify-content: center;
   background-color: transparent;
-  align-items: center;
 }
 
-#bracket {
+.bracket {
   width: 100%;
-  height: 100%;
-  background: transparent; /* transparent background */
-  overflow: visible;
-  display: block;
+  height: calc(100% - 80px); /* leave space for the header */
+}
+
+.bracket-title {
+  position: absolute;
+  top: 60px; /* distance from top */
+  right: 140px; /* distance from right */
+  font-family: "SolmoeKimDaeGeon", sans-serif;
+  font-size: 8em; /* adjust as needed */
+  color: rgb(65, 161, 185);
+  /* Fade + slide */
+  opacity: 0;
+  transform: translateX(20px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+  pointer-events: none; /* so it won't block clicks */
+  /* Outline */
+  -webkit-text-stroke: 2px black; /* Chrome/Safari */
+  text-stroke: 2px black; /* future-proof (Firefox currently ignores) */
+
+  /* Drop shadow */
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7), -2px -2px 4px rgba(0, 0, 0, 0.7),
+    2px -2px 4px rgba(0, 0, 0, 0.7), -2px 2px 4px rgba(0, 0, 0, 0.7);
+}
+#losers-header {
+  color: red;
+}
+
+.bracket-title.active {
+  opacity: 1;
+  transform: translateX(0); /* slide into place */
 }
 
 /* Each round column */
@@ -87,9 +118,19 @@ body {
 }
 
 svg {
-  width: 100vw;
-  height: 100vh;
-  overflow: visible;
+  position: absolute; /* stack them on top of each other */
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  pointer-events: none; /* avoid clicks when hidden */
+  transition: opacity 0.5s ease;
+}
+
+svg.active {
+  opacity: 1;
+  pointer-events: all; /* only visible svg is interactive */
 }
 
 .match {
