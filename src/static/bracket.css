@@ -1,3 +1,7 @@
+:root {
+  --blue-color: #00a9b7; /* soft blue tint */
+  --brown-color: #c79b51; /* soft brown tint */
+}
 @font-face {
   font-family: "SolmoeKimDaeGeon";
   src: url("./fonts/SolmoeKimDaeGeon.otf") format("opentype");
@@ -5,6 +9,7 @@
 body {
   font-family: "SolmoeKimDaeGeon", sans-serif;
   font-size: 1em; /* adjust as needed */
+  margin: 0;
 }
 /* Main bracket container */
 #bracket-container {
@@ -40,7 +45,7 @@ body {
     2px -2px 4px rgba(0, 0, 0, 0.7), -2px 2px 4px rgba(0, 0, 0, 0.7);
 }
 #losers-header {
-  color: red;
+  color: var(--brown-color);
 }
 
 .bracket-title.active {
@@ -68,28 +73,37 @@ body {
 
 /* Match rectangle */
 .set {
-  fill: #1a1a1a;
-  stroke: #444;
-  stroke-width: 2;
-  rx: 8;
-  ry: 8;
+  fill: rgba(25, 25, 25, 0.9);
+  stroke: rgba(255, 255, 255, 0.1);
+  stroke-width: 1.5;
+  filter: drop-shadow(1px 2px 3px rgba(0, 0, 0, 0.4));
 }
 
 /* Player name text */
 .players {
-  font-size: 13px;
-  fill: #e0e0e0;
+  font-size: 22px;
   font-weight: 500;
   text-anchor: middle;
   pointer-events: none;
 }
 
 .player-top {
-  fill: #00a9b7; /* soft blue tint */
+  fill: var(--blue-color); /* soft blue tint */
 }
 
 .player-bottom {
-  fill: #c79b51; /* soft brown tint */
+  fill: var(--brown-color); /* soft brown tint */
+}
+
+.player-top-bg {
+  fill: var(--player-top-bg, rgba(0, 169, 183, 0.3));
+}
+
+.player-bottom-bg {
+  fill: var(--player-bottom-bg, rgba(199, 155, 81, 0.3));
+}
+.player-text {
+  pointer-events: none;
 }
 
 /* Highlight winners */
@@ -113,8 +127,8 @@ body {
   background-color: #2a1a1a;
 }
 
-body {
-  margin: 0;
+.match-box {
+  filter: drop-shadow(8px 8px 16px rgba(0, 0, 0, 0.8));
 }
 
 svg {

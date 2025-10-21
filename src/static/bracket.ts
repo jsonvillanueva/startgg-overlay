@@ -42,7 +42,29 @@ interface LayoutNode {
   y: number;
   round: number;
   match: number;
+  round_name: string;
   name: string;
+}
+function createRoundedRectPath(
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  rTL: number, // top-left radius
+  rBR: number // bottom-right radius
+): string {
+  return `
+    M${x + rTL},${y}             
+    L${x + w},${y}              
+    L${x + w},${y + h - rBR}  
+    Q${x + w},${y + h} ${x + w - rBR},${y + h} 
+    L${x},${y + h}           
+    L${x},${y + rTL}          
+    Q${x},${y} ${x + rTL},${y} 
+    Z
+  `
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function parseMatchFromTypeId(typeId: string | number): number {
@@ -139,32 +161,80 @@ function drawBracket(
       `translate(${node.x - boxW / 2}, ${node.y - boxH / 2})`
     );
 
-    const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-    rect.setAttribute("width", boxW.toString());
-    rect.setAttribute("height", boxH.toString());
-    rect.setAttribute("round_number", node.round.toString());
-    rect.classList.add("set");
-    g.appendChild(rect);
+    // Draw a path with rounded upper-left & bottom-right corners only
+    const radius = 24;
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+
+    const x = node.x - boxW / 2;
+    const y = node.y - boxH / 2;
+
+    // Path data for rectangle with rounded TL and BR corners
+    // Relative coordinates inside <g>
+    const d = `
+  M ${radius},0
+  H ${boxW}
+  V ${boxH - radius}
+  Q ${boxW},${boxH} ${boxW - radius},${boxH}
+  H 0
+  V ${radius}
+  Q 0,0 ${radius},0
+  Z
+`;
+
+    path.setAttribute("d", d.trim());
+    path.classList.add("set");
+    path.setAttribute("round_number", node.round.toString());
+    path.setAttribute("round_name", node.round_name);
+    path.classList.add("match-box");
+    g.appendChild(path);
 
     // Handle player text lines
     const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
     text.classList.add("players");
-    text.setAttribute("font-size", "16"); // was default, now bigger
+    text.setAttribute("font-size", "32"); // was default, now bigger
     text.setAttribute("x", (boxW / 2).toString());
     text.setAttribute("y", (boxH / 2 - 6).toString());
 
     const players = node.name.split(" vs ");
     players.forEach((p, i) => {
-      const tspan = document.createElementNS(
+      const playerGroup = document.createElementNS(
         "http://www.w3.org/2000/svg",
-        "tspan"
+        "g"
       );
-      tspan.setAttribute("x", (boxW / 2).toString());
-      tspan.setAttribute("dy", i === 0 ? "0" : "1.3em"); // space between lines
-      if (i === 0) tspan.classList.add("player-top");
-      else tspan.classList.add("player-bottom");
-      tspan.textContent = p || "TBD";
-      text.appendChild(tspan);
+      const bg = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      const text = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "text"
+      );
+
+      const isTop = i === 0;
+      const bgY = isTop ? 0 : boxH / 2;
+      const textY = isTop ? boxH / 4 : (3 * boxH) / 4;
+
+      bg.setAttribute(
+        "d",
+        createRoundedRectPath(
+          0,
+          bgY,
+          boxW,
+          boxH / 2,
+          isTop ? radius : 0,
+          isTop ? 0 : radius
+        )
+      );
+      bg.classList.add("set", isTop ? "player-top-bg" : "player-bottom-bg");
+
+      text.textContent = p || "";
+      text.setAttribute("x", (boxW / 2).toString());
+      text.setAttribute("y", textY.toString());
+      text.classList.add("player-text", isTop ? "player-top" : "player-bottom");
+      text.setAttribute("text-anchor", "middle");
+      text.setAttribute("dominant-baseline", "middle");
+      text.setAttribute("font-size", "16");
+
+      playerGroup.appendChild(bg);
+      playerGroup.appendChild(text);
+      g.appendChild(playerGroup);
     });
 
     g.appendChild(text);
@@ -225,25 +295,40 @@ function buildLayout(
     .map(Number)
     .sort((a, b) => a - b);
 
+  // Find the round with the most matches
+  const maxMatches = Math.max(...rounds.map((r) => roundGroups[r].length));
+  const centerY = yOffset + availableHeight / 2;
+
   const layout: Record<string, LayoutNode> = {};
+
   rounds.forEach((round, colIdx) => {
     const setsInRound = roundGroups[round];
     setsInRound.sort(
       (a, b) => parseMatchFromTypeId(a.id) - parseMatchFromTypeId(b.id)
     );
 
-    const startY = 0;
-    const endY = availableHeight;
-    const virtualSlots = setsInRound.length + 2;
-    const spacing = (endY - startY - BOX_HEIGHT) / (virtualSlots - 1);
+    const n = setsInRound.length;
+    const spacing = availableHeight / (maxMatches + 1);
+
+    // Compute total height of this round’s matches
+    const totalHeight = (n - 1) * spacing;
+
+    // Align this round vertically centered around centerY
+    const startY = centerY - totalHeight / 2;
 
     setsInRound.forEach((set, i) => {
       const x = colIdx * COLUMN_WIDTH + xOffset;
-      const y = yOffset + startY + (i + 1) * spacing;
+      const y = startY + i * spacing;
 
       const names = set.slots
         .map((s: any) => s?.entrant?.name || "")
-        .filter(Boolean);
+        .filter(Boolean)
+        .map((name: string) => {
+          const parts = name.split("|").map((s) => s.trim());
+          const gamertag = parts.length > 1 ? parts[1] : parts[0];
+          return gamertag.length > 16 ? gamertag.slice(0, 16) + "…" : gamertag;
+        });
+
       let entrantNames =
         names.length === 2
           ? `${names[0]} vs ${names[1]}`
@@ -256,6 +341,7 @@ function buildLayout(
         x,
         y,
         round,
+        round_name: set.fullRoundText,
         match: parseMatchFromTypeId(set.id),
         name: entrantNames,
       };
@@ -277,45 +363,26 @@ async function updateBracket() {
 
   // Flatten sets
   const allSets: any[] = [];
-  json.data.phase.sets.forEach((set: BracketSet) => {
-    // Adjust Grand Finals Reset to appear one column further
-    if (set.fullRoundText === "Grand Final Reset") {
-      set.round += 1;
-      set.id = `preview_141414_${set.round}_0`;
-    }
-    allSets.push(set);
-  });
 
-  // --- Winners bracket ---
-  const halfHeight = window.innerHeight / 2;
+  // First find references for logic
+  const grandFinal = json.data.phase.sets.find(
+    (s: any) => s.fullRoundText === "Grand Final"
+  );
+  const losersFinal = json.data.phase.sets.find(
+    (s: any) => s.fullRoundText === "Losers Final"
+  );
 
-  const winnersSets = allSets.filter((s) => s.round >= 0);
-  const winnerLayout = buildLayout(winnersSets, 0, 0, window.innerHeight); // top half
-  const winnerRoots = buildBracketGraph(winnersSets);
-
-  // --- Losers bracket ---
-  const losersSets = allSets.filter((s) => s.round < 0);
-  const LOSERS_X_OFFSET =
-    Math.max(...winnersSets.map((s) => s.round)) * COLUMN_WIDTH + 300;
-  const loserLayout = buildLayout(losersSets, 0, 0, window.innerHeight); // bottom half
-  const loserRoots = buildBracketGraph(losersSets);
-
-  const winnersFinal = winnersSets
-    .filter((s: any) => s.fullRoundText.includes("Grand Final"))
-    .sort((a: any, b: any) => a.round - b.round)[0];
-
-  const losersFinal = losersSets
-    .filter((s: any) => s.fullRoundText.includes("Grand Final"))
-    .sort((a: any, b: any) => a.round - b.round)[0];
-
-  // Flatten sets and conditionally add Grand Final Reset
+  // Now process sets
   json.data.phase.sets.forEach((set: BracketSet) => {
     if (set.fullRoundText === "Grand Final Reset") {
-      // Only include reset if loser bracket winner won the first GF match
-      const grandFinal = json.data.phase.sets.find(
-        (s: any) => s.fullRoundText === "Grand Final"
-      );
-      if (grandFinal && grandFinal.winnerId === losersFinal?.winnerId) {
+      if (
+        grandFinal &&
+        losersFinal &&
+        grandFinal.winnerId != null &&
+        losersFinal.winnerId != null &&
+        grandFinal.winnerId === losersFinal.winnerId
+      ) {
+        // Only include the reset if the loser’s bracket winner actually won GF1
         set.round += 1;
         set.id = `preview_141414_${set.round}_0`;
         allSets.push(set);
@@ -324,19 +391,17 @@ async function updateBracket() {
       allSets.push(set);
     }
   });
+  console.log(allSets);
 
-  // Combine layouts
-  const combinedLayout: Record<string, LayoutNode> = {
-    ...winnerLayout,
-    ...loserLayout,
-  };
+  // --- Winners / Losers split ---
+  const winnersSets = allSets.filter((s) => s.round >= 0);
+  const losersSets = allSets.filter((s) => s.round < 0);
 
-  // Combine sets for drawing
-  const combinedSets = [...winnersSets, ...losersSets];
+  const winnerLayout = buildLayout(winnersSets, 0, 0, window.innerHeight);
+  const loserLayout = buildLayout(losersSets, 0, 0, window.innerHeight);
 
   const winnersSvg = document.querySelector<SVGSVGElement>("#winners-bracket")!;
   const losersSvg = document.querySelector<SVGSVGElement>("#losers-bracket")!;
-
   // Draw everything
   drawBracket(winnersSets, winnerLayout, BOX_WIDTH, BOX_HEIGHT, winnersSvg);
   drawBracket(losersSets, loserLayout, BOX_WIDTH, BOX_HEIGHT, losersSvg);
