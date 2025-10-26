@@ -1,0 +1,107 @@
+:root {
+  --blue-color: #00a9b7; /* soft blue tint */
+  --brown-color: #c79b51; /* soft brown tint */
+}
+
+@font-face {
+  font-family: "SolmoeKimDaegeon";
+  src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts-20-12@1.0/kdg_Light.woff")
+    format("woff");
+  font-weight: 300;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "SolmoeKimDaegeon";
+  src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts-20-12@1.0/kdg_Medium.woff")
+    format("woff");
+  font-weight: 500;
+  font-display: swap;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  color: white;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+  font-family: "SolmoeKimDaegeon", sans-serif;
+  position: relative; /* for absolute children */
+  display: block; /* remove flex to prevent centering offsets */
+}
+
+/* Schedule container (top-left corner) */
+#schedule-container {
+  position: absolute;
+  top: 160px; /* distance from top */
+  left: -80px; /* flush left */
+  padding: 20px 0 0 0; /* only top padding */
+  width: 20%; /* 1/3 OBS width */
+  display: flex;
+  flex-direction: column;
+  align-items: stretch; /* full width children */
+  gap: 20px; /* space between matches */
+}
+
+/* Individual match entries */
+.match-entry {
+  width: 100%; /* fills container width */
+  padding: 20px 16px; /* taller/wider divs */
+  background-color: rgba(30, 30, 30, 0.9);
+  border-radius: 12px;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.5);
+  text-align: center;
+  font-family: "SolmoeKimDaegeon", sans-serif;
+  margin: 20px; /* remove bottom margin, gap handles spacing */
+}
+
+.match-entry.completed {
+  opacity: 0.6;
+}
+
+.match-round {
+  font-size: 1rem;
+  opacity: 0.85;
+  margin-bottom: 5px;
+}
+
+.match-players {
+  font-size: 1.3rem;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.match-time {
+  font-size: 0.9rem;
+  color: #bbb;
+}
+
+/* Countdown (bottom-left corner) */
+#countdown-container {
+  position: fixed; /* ✅ stays in viewport */
+  bottom: 40px;
+  left: 80px; /* adjust horizontal position */
+  width: 200px;
+  text-align: center;
+  font-family: "SolmoeKimDaegeon", sans-serif;
+}
+
+#countdown {
+  font-size: 3.5rem;
+  font-weight: bold;
+  color: var(--blue-color);
+  letter-spacing: 2px;
+  text-shadow: 3px 3px 6px black;
+}
+
+#countdown-label {
+  font-size: 1rem;
+  color: var(--blue-color);
+  font-weight: 600;
+  opacity: 0.8;
+  letter-spacing: 1px;
+  margin-top: 6px;
+  text-shadow: 2px 2px 4px black;
+}

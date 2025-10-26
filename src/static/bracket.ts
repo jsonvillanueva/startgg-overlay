@@ -1,8 +1,28 @@
 import { BASE_URL, PHASE_ID } from "./constants.js";
 
+declare global {
+  interface Window {
+    poolMap?: Record<string, BracketSet[]>;
+  }
+}
+
 const COLUMN_WIDTH = 280; // was 220
 const BOX_WIDTH = 200; // was 160
 const BOX_HEIGHT = 60; // was 40
+const POOL_COUNT = 8; // number of pools (A–H)
+const POOL_CYCLE_INTERVAL = 8000; // ms per pool
+const BRACKET_TOGGLE_INTERVAL = 4000; // switch upper/lower halfway through
+
+let currentPoolIndex = 0;
+
+let poolsData: PoolsData; // fetched data per pool
+
+interface PoolsData {
+  data: {
+    sets: BracketSet[];
+  };
+}
+
 interface EntrantSource {
   type?: string; // e.g. "set"
   typeId?: number | string; // links to another set's id
@@ -26,6 +46,8 @@ interface BracketSet {
   y?: number;
   children?: BracketSet[];
   element?: HTMLElement;
+  poolId?: string;
+  displayIdentifier: string;
 }
 
 // Represents a node in the graph
@@ -74,6 +96,17 @@ function parseMatchFromTypeId(typeId: string | number): number {
   }
   // fallback for numeric IDs
   return Number(typeId) || 0;
+}
+
+function getAllPoolIds(): string[] {
+  return Object.keys(window.poolMap ?? {});
+}
+
+function derivePoolIdFromSet(set: BracketSet): string {
+  // Example logic: group every 32 sets together as a pool
+  // Replace this with actual API data if possible
+  const idNum = parseInt(set.id.match(/\d+/)?.[0] ?? "0");
+  return String(Math.floor(idNum / 32));
 }
 
 function buildBracketGraph(sets: BracketSet[]): BracketNode[] {
@@ -352,28 +385,33 @@ function buildLayout(
 }
 
 /* --- Update loop --- */
-async function fetchBracket() {
-  const res = await fetch(`${BASE_URL}/bracket/${PHASE_ID}`);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
-}
+async function updateBracketForPool(poolIndex: number) {
+  // --- Step 1: Build pool map once ---
+  // (Do this once globally, not every frame if possible)
+  if (!window.poolMap) {
+    window.poolMap = {};
+    for (const set of poolsData.data.sets) {
+      const poolId = set.displayIdentifier ?? "Unknown";
+      (window.poolMap[poolId] ??= []).push(set);
+    }
+  }
 
-async function updateBracket() {
-  const json = await fetchBracket();
+  const poolKeys = Object.keys(window.poolMap);
+  const poolId = poolKeys[poolIndex];
+  const poolSets = window.poolMap[poolId];
+  if (!poolSets) return;
 
-  // Flatten sets
+  // --- Step 2: Flatten sets and handle Grand Final Reset logic ---
   const allSets: any[] = [];
 
-  // First find references for logic
-  const grandFinal = json.data.phase.sets.find(
+  const grandFinal = poolSets.find(
     (s: any) => s.fullRoundText === "Grand Final"
   );
-  const losersFinal = json.data.phase.sets.find(
+  const losersFinal = poolSets.find(
     (s: any) => s.fullRoundText === "Losers Final"
   );
 
-  // Now process sets
-  json.data.phase.sets.forEach((set: BracketSet) => {
+  poolSets.forEach((set: BracketSet) => {
     if (set.fullRoundText === "Grand Final Reset") {
       if (
         grandFinal &&
@@ -382,18 +420,18 @@ async function updateBracket() {
         losersFinal.winnerId != null &&
         grandFinal.winnerId === losersFinal.winnerId
       ) {
-        // Only include the reset if the loser’s bracket winner actually won GF1
         set.round += 1;
-        set.id = `preview_141414_${set.round}_0`;
+        set.id = `preview_${poolId}_${set.round}_0`;
         allSets.push(set);
       }
     } else {
       allSets.push(set);
     }
   });
-  console.log(allSets);
 
-  // --- Winners / Losers split ---
+  console.log(`Rendering Pool ${poolId}`, allSets);
+
+  // --- Step 3: Separate winners/losers sets ---
   const winnersSets = allSets.filter((s) => s.round >= 0);
   const losersSets = allSets.filter((s) => s.round < 0);
 
@@ -402,35 +440,110 @@ async function updateBracket() {
 
   const winnersSvg = document.querySelector<SVGSVGElement>("#winners-bracket")!;
   const losersSvg = document.querySelector<SVGSVGElement>("#losers-bracket")!;
-  // Draw everything
+
+  if (!winnersSvg || !losersSvg) {
+    console.error("SVG elements not found in DOM!");
+    return;
+  }
+
   drawBracket(winnersSets, winnerLayout, BOX_WIDTH, BOX_HEIGHT, winnersSvg);
   drawBracket(losersSets, loserLayout, BOX_WIDTH, BOX_HEIGHT, losersSvg);
+
+  // --- Step 4: Update pool title ---
+  document.getElementById("pool-title")!.textContent = `Group ${poolId}`;
 }
+
 let showingWinners = true;
 
-function toggleBrackets() {
-  showingWinners = !showingWinners;
+// Save bracket data to localStorage
+function cacheBracketData(json: any) {
+  try {
+    localStorage.setItem("lastBracketData", JSON.stringify(json));
+  } catch (err) {
+    console.warn("Failed to cache bracket data", err);
+  }
+}
 
-  // toggle bracket SVGs
-  document
-    .getElementById("winners-bracket")
-    ?.classList.toggle("active", showingWinners);
-  document
-    .getElementById("losers-bracket")
-    ?.classList.toggle("active", !showingWinners);
+// Load bracket data from localStorage
+function loadCachedBracketData(): any {
+  try {
+    const stored = localStorage.getItem("lastBracketData");
+    if (stored) return JSON.parse(stored);
+  } catch (err) {
+    console.warn("Failed to parse cached bracket data", err);
+  }
+  return null;
+}
 
-  // toggle headers
-  document
-    .getElementById("winners-header")
-    ?.classList.toggle("active", showingWinners);
-  document
-    .getElementById("losers-header")
-    ?.classList.toggle("active", !showingWinners);
+async function fetchBracket() {
+  let poolsData: any = null;
+  try {
+    const res = await fetch(`${BASE_URL}/bracket/${PHASE_ID}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+
+    if (json?.data?.sets?.length) {
+      poolsData = json;
+      cacheBracketData(json); // save latest
+    }
+
+    return json;
+  } catch (err) {
+    console.warn("Fetch failed, falling back to cached bracket", err);
+    poolsData = loadCachedBracketData() ?? { data: { sets: [] } };
+    return poolsData;
+  }
+}
+
+// Start the rotation
+async function startPoolRotation() {
+  // Use cached data immediately
+  poolsData = loadCachedBracketData() ?? { data: { sets: [] } };
+  if (poolsData.data.sets.length) {
+    await updateBracketForPool(0);
+  }
+
+  // Fetch fresh data asynchronously
+  const freshData = await fetchBracket();
+  if (freshData?.data?.sets?.length) {
+    poolsData = freshData;
+    await updateBracketForPool(0);
+  }
+
+  document.getElementById("winners-bracket")?.classList.add("active");
+
+  const winnersHeader = document.getElementById("winners-header");
+  const losersHeader = document.getElementById("losers-header");
+
+  const poolTitle = document.getElementById("pool-title");
+  if (poolTitle) {
+    poolTitle.classList.add("active"); // or toggle if you want it to animate per pool
+  }
+  // Toggle winners/losers
+  setInterval(() => {
+    showingWinners = !showingWinners;
+    if (winnersHeader && losersHeader) {
+      winnersHeader.classList.toggle("active", showingWinners);
+      losersHeader.classList.toggle("active", !showingWinners);
+    }
+    document
+      .getElementById("winners-bracket")
+      ?.classList.toggle("active", showingWinners);
+    document
+      .getElementById("losers-bracket")
+      ?.classList.toggle("active", !showingWinners);
+  }, BRACKET_TOGGLE_INTERVAL);
+
+  // Cycle pools
+  setInterval(async () => {
+    const poolKeys = Object.keys(window.poolMap ?? {});
+    currentPoolIndex = (currentPoolIndex + 1) % poolKeys.length;
+    await updateBracketForPool(currentPoolIndex);
+  }, POOL_CYCLE_INTERVAL);
 }
 
 // Example: switch every 10 seconds
-setInterval(toggleBrackets, 10000);
-setInterval(updateBracket, 30000);
-
-updateBracket();
+window.addEventListener("DOMContentLoaded", async () => {
+  startPoolRotation();
+});
 document.getElementById("winners-bracket")?.classList.add("active");

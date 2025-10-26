@@ -44,6 +44,23 @@ body {
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7), -2px -2px 4px rgba(0, 0, 0, 0.7),
     2px -2px 4px rgba(0, 0, 0, 0.7), -2px 2px 4px rgba(0, 0, 0, 0.7);
 }
+
+#pool-title {
+  position: absolute;
+  font-family: "SolmoeKimDaeGeon", sans-serif;
+  font-size: 4em; /* adjust as needed */
+  color: white;
+  align-content: end;
+  top: 50px; /* distance from top */
+  right: 140px; /* distance from right */
+  margin-bottom: 8px;
+  text-align: center;
+  -webkit-text-stroke: 2px black; /* Chrome/Safari */
+  text-stroke: 2px black; /* future-proof (Firefox currently ignores) */
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1), -2px -2px 4px rgba(0, 0, 0, 0.1),
+    2px -2px 4px rgba(0, 0, 0, 0.1), -2px 2px 4px rgba(0, 0, 0, 0.1);
+}
+
 #losers-header {
   color: var(--brown-color);
 }

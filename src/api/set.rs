@@ -19,6 +19,8 @@ pub struct SetFull {
     pub id: u64,
     pub display_score: Option<String>,
     pub full_round_text: Option<String>,
+    pub start_at: Option<u64>,
+    pub completed_at: Option<u64>,
     pub round: Option<i32>,
     pub total_games: Option<u64>,
     pub phase_group: Option<PhaseGroup>,
@@ -30,6 +32,7 @@ pub struct SetFull {
 pub struct PhaseGroup {
     pub id: u64,
     pub phase: Option<Phase>,
+    pub display_identifier: Option<String>, // <- add this
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -84,10 +87,13 @@ pub async fn get_set_full(set_id: u64) -> anyhow::Result<Option<SetFull>> {
             id
             displayScore
             fullRoundText
+            startAt
+            completedAt
             round
             totalGames
             phaseGroup {
               id
+              displayIdentifier
               phase {
                 name
               }
